@@ -42,7 +42,7 @@ All asset references are relative, so the app works when hosted from a repositor
 ## Notes
 
 - Page 1 is always a single cover; subsequent navigation uses spreads 2–3, 4–5, and so on, with a final single page when needed.
-- Reading order is intentionally restricted to left-to-right: page 1 is the cover, followed by spreads 2–3, 4–5, and so on. Navigation uses a horizontal slide transition: the new spread enters from the right when advancing and from the left when going back, over the previous spread.
+- Reading order is intentionally restricted to left-to-right. Page view choices include Book (cover + spreads), Two-page spread, and One page. Navigation uses a horizontal slide transition: the new view enters from the right when advancing and from the left when going back, over the previous view.
 - Mobile controls include tap navigation (left half = previous, right half = next), swipe/edge-drag page turns, pinch zoom, and a Rotate view control. Page dimensions are scaled uniformly to preserve each PDF page's aspect ratio.
 - Thumbnails are hidden by default. When enabled, the panel shows a maximum of 10 thumbnails at a time with previous/next thumbnail-window controls.
 - Pages are rasterized to JPEG data URLs and retained in memory for this testing prototype. The cover and first spread render first, then remaining pages render progressively in the background; navigating to an unfinished page triggers its render immediately. Large-file warnings appear for PDFs over 100 pages or 50 MB.
