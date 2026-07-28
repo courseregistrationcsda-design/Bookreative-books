@@ -1,6 +1,6 @@
 let pdfjsLib;
 const $ = id => document.getElementById(id);
-const state = { pdf:null, pages:[], current:1, binding:'ltr', zoom:1, reduceMotion:false, renderToken:0, rendering:new Set() };
+const state = { pdf:null, pages:[], current:1, binding:'ltr', zoom:1, reduceMotion:false, renderToken:0, rendering:new Set(), thumbStart:1 };
 function pageExtent(page){ const v=page.getViewport({scale:1}); return {width:v.width,height:v.height}; }
 function fileIsPdf(file){ return file && (file.type==='application/pdf' || file.name.toLowerCase().endsWith('.pdf')); }
 
@@ -14,7 +14,7 @@ async function openPdf(file){
     const buffer=await file.arrayBuffer();
     state.pdf=await pdfjsLib.getDocument({data:buffer}).promise;
     state.pages=Array.from({length:state.pdf.numPages},()=>({src:null,width:612,height:792,ratio:612/792}));
-    state.rendering.clear(); state.current=1; state.zoom=1;
+    state.rendering.clear(); state.current=1; state.zoom=1; state.thumbStart=1;
     $('bookTitle').textContent=file.name;
     $('pageCountLabel').textContent=`· ${state.pdf.numPages} pages`;
     $('pageTotal').textContent=`/ ${state.pdf.numPages}`;
@@ -56,8 +56,15 @@ async function renderRemainingPages(token){
 
 function buildThumbnails(){
   const box=$('thumbnails'); box.replaceChildren();
-  state.pages.forEach((p,i)=>{ const b=document.createElement('button'); b.className='thumb'; b.type='button'; b.dataset.page=i+1; b.title=`Go to page ${i+1}`; b.innerHTML=p.src?`<img src="${p.src}" alt="Page ${i+1} thumbnail">`:`<span class="thumb-placeholder" aria-label="Page ${i+1} loading">${i+1}</span>`; b.insertAdjacentHTML('beforeend',`<small>${i+1}</small>`); b.onclick=()=>{jump(i+1);renderPage(i+1)}; box.append(b); });
+  const start=Math.max(1,Math.min(state.thumbStart,state.pages.length||1)); const end=Math.min(state.pages.length,start+9);
+  for(let pageNumber=start;pageNumber<=end;pageNumber++){
+    const p=state.pages[pageNumber-1], b=document.createElement('button'); b.className='thumb'; b.type='button'; b.dataset.page=pageNumber; b.title=`Go to page ${pageNumber}`;
+    b.innerHTML=p.src?`<img src="${p.src}" alt="Page ${pageNumber} thumbnail">`:`<span class="thumb-placeholder" aria-label="Page ${pageNumber} loading">${pageNumber}</span>`;
+    b.insertAdjacentHTML('beforeend',`<small>${pageNumber}</small>`); b.onclick=()=>{jump(pageNumber);renderPage(pageNumber)}; box.append(b);
+  }
+  $('thumbRange').textContent=state.pages.length?`${start}–${end}`:'0'; $('thumbPrev').disabled=start<=1; $('thumbNext').disabled=end>=state.pages.length;
 }
+function ensureThumbnailWindow(index){ const desired=Math.floor((index-1)/10)*10+1; if(desired!==state.thumbStart){state.thumbStart=desired;buildThumbnails();} }
 function updateThumbnail(index){
   const b=document.querySelector(`.thumb[data-page="${index}"]`); const p=state.pages[index-1];
   if(b&&p?.src){ const old=b.querySelector('img,.thumb-placeholder'); if(old){const img=new Image();img.src=p.src;img.alt=`Page ${index} thumbnail`;old.replaceWith(img);} }
@@ -91,7 +98,7 @@ function updateView(transition=''){
   [...document.querySelectorAll('.thumb')].forEach(x=>x.classList.toggle('active',Number(x.dataset.page)===state.current));
   $('readerStatus').textContent=state.current===1?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`;
 }
-function jump(n,transition=''){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(n>1 && n%2===1)n--; state.current=n; updateView(transition); }
+function jump(n,transition=''){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(n>1 && n%2===1)n--; state.current=n; ensureThumbnailWindow(n); updateView(transition); }
 function nextSpread(){ if(state.current===1)jump(2,'next'); else jump(state.current+2,'next'); }
 function prevSpread(){ if(state.current<=2)jump(1,'prev'); else jump(state.current-2,'prev'); }
 function next(){ state.binding==='rtl'?prevSpread():nextSpread(); }
@@ -175,6 +182,7 @@ $('rotateBtn').onclick=async()=>{
 window.addEventListener('orientationchange',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
 function toggleThumbnails(){ const panel=$('thumbPanel'), hidden=!panel.hidden; panel.hidden=hidden; $('thumbsBtn').setAttribute('aria-expanded',String(!hidden)); $('thumbsBtn').textContent=hidden?'Show thumbnails':'Hide thumbnails'; }
 $('thumbToggle').onclick=toggleThumbnails; $('thumbsBtn').onclick=toggleThumbnails;
+$('thumbPrev').onclick=()=>{state.thumbStart=Math.max(1,state.thumbStart-10);buildThumbnails()}; $('thumbNext').onclick=()=>{if(state.thumbStart+10<=state.pages.length){state.thumbStart+=10;buildThumbnails()}};
 document.addEventListener('keydown',e=>{if(e.target.matches('input,select,button'))return;if(['ArrowRight','PageDown'].includes(e.key)){e.preventDefault();next()}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev()}if(e.key==='Home')jump(1)});
 function applyTheme(value){document.body.dataset.theme=value==='system'?'':value; localStorage.setItem('bookreative-theme',value); $('themeSelect').value=value;}
 $('themeMenuBtn').onclick=()=>{const select=$('themeSelect'),open=select.hidden;select.hidden=!open;$('themeMenuBtn').setAttribute('aria-expanded',String(open));if(open)select.focus()}; $('themeSelect').onchange=e=>applyTheme(e.target.value);

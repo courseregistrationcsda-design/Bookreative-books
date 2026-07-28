@@ -44,6 +44,7 @@ All asset references are relative, so the app works when hosted from a repositor
 - Page 1 is always a single cover; subsequent navigation uses spreads 2–3, 4–5, and so on, with a final single page when needed.
 - Reading order is intentionally restricted to left-to-right: page 1 is the cover, followed by spreads 2–3, 4–5, and so on.
 - Mobile controls include tap navigation (left half = previous, right half = next), swipe/edge-drag page turns, pinch zoom, and a Rotate view control. Page dimensions are scaled uniformly to preserve each PDF page's aspect ratio.
+- Thumbnails are hidden by default. When enabled, the panel shows a maximum of 10 thumbnails at a time with previous/next thumbnail-window controls.
 - Pages are rasterized to JPEG data URLs and retained in memory for this testing prototype. The cover and first spread render first, then remaining pages render progressively in the background; navigating to an unfinished page triggers its render immediately. Large-file warnings appear for PDFs over 100 pages or 50 MB.
 - Theme, high contrast, and reduce-motion preferences are stored with `localStorage` without an app-imposed storage cap.
 - The interface opens directly into the studio without a splash screen. PDF rendering progress is shown in the reader status line.

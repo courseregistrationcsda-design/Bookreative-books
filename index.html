@@ -38,16 +38,17 @@
       </div>
       <div id="largeWarning" class="warning" hidden role="alert">This is a large PDF. Keeping every rendered page in memory may use significant memory. Close other tabs if your device becomes slow.</div>
       <div class="reader-layout">
-        <aside id="thumbPanel" class="thumb-panel" aria-label="Page thumbnails">
+        <aside id="thumbPanel" class="thumb-panel" hidden aria-label="Page thumbnails">
           <div class="panel-heading"><strong>Pages</strong><button id="thumbToggle" type="button" aria-label="Hide thumbnails">×</button></div>
           <div id="thumbnails" class="thumbnails"></div>
+          <div class="thumb-pagination"><button id="thumbPrev" type="button" aria-label="Previous 10 thumbnails">‹</button><span id="thumbRange">1–10</span><button id="thumbNext" type="button" aria-label="Next 10 thumbnails">›</button></div>
         </aside>
         <section class="reader-shell">
           <div id="reader" class="reader" tabindex="0" aria-label="Flipbook viewer">
             <div id="bookStage" class="book-stage"><div class="empty-reader">Your pages will appear here.</div></div>
           </div>
           <div class="reader-controls">
-            <button id="thumbsBtn" type="button" title="Toggle page thumbnails" aria-expanded="true">Thumbnails</button><button id="prevBtn" type="button" title="Previous page (Left arrow or Page Up)">‹ Prev</button>
+            <button id="thumbsBtn" type="button" title="Toggle page thumbnails" aria-expanded="false">Show thumbnails</button><button id="prevBtn" type="button" title="Previous page (Left arrow or Page Up)">‹ Prev</button>
             <button id="nextBtn" class="primary" type="button" title="Next page (Right arrow or Page Down)">Next ›</button>
             <label class="page-jump">Page <input id="pageJump" type="number" min="1" value="1"><span id="pageTotal">/ 0</span></label>
             <input id="pageSlider" class="page-slider" type="range" min="1" max="1" value="1" aria-label="Page slider">
