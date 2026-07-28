@@ -3,18 +3,13 @@ import * as pdfjsLib from './vendor/pdf.min.js';
 pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.min.js';
 const $ = id => document.getElementById(id);
 const state = { pdf:null, pages:[], current:1, binding:'ltr', zoom:1, reduceMotion:false, renderToken:0 };
-const loading = $('loadingOverlay');
-
-function showLoading(message='Preparing your studio…') { $('loadingMessage').textContent=message; loading.hidden=false; }
-function hideLoading(){ loading.hidden=true; }
-function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
 function pageExtent(page){ const v=page.getViewport({scale:1}); return {width:v.width,height:v.height}; }
 function fileIsPdf(file){ return file && (file.type==='application/pdf' || file.name.toLowerCase().endsWith('.pdf')); }
 
 async function openPdf(file){
   if(!fileIsPdf(file)){ alert('Please choose a PDF file.'); return; }
-  showLoading('Opening and rendering your book…');
-  const started=performance.now(); state.renderToken++; const token=state.renderToken;
+  $('readerStatus').textContent='Opening and rendering your book…';
+  state.renderToken++; const token=state.renderToken;
   try {
     const buffer=await file.arrayBuffer();
     const task=pdfjsLib.getDocument({data:buffer});
@@ -27,7 +22,7 @@ async function openPdf(file){
     $('workspace').hidden=false; $('dropZone').hidden=true;
     for(let i=1;i<=state.pdf.numPages;i++){
       if(token!==state.renderToken) return;
-      $('loadingMessage').textContent=`Rendering page ${i} of ${state.pdf.numPages}…`;
+      $('readerStatus').textContent=`Rendering page ${i} of ${state.pdf.numPages}…`;
       const page=await state.pdf.getPage(i); const extent=pageExtent(page);
       const scale=Number($('scaleInput').value)||1.2; const viewport=page.getViewport({scale});
       const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d',{alpha:false});
@@ -37,7 +32,7 @@ async function openPdf(file){
     }
     buildThumbnails(); state.current=1; state.zoom=1; updateView();
   } catch(err){ console.error(err); alert(`Could not open this PDF: ${err.message||err}`); }
-  finally { await wait(Math.max(0,4000-(performance.now()-started))); if(token===state.renderToken) hideLoading(); }
+  finally { if(token===state.renderToken && state.pages.length===0) $('readerStatus').textContent='No pages rendered.'; }
 }
 
 function buildThumbnails(){
@@ -122,4 +117,3 @@ document.addEventListener('keydown',e=>{if(e.target.matches('input,select,button
 $('themeSelect').onchange=e=>{document.body.dataset.theme=e.target.value==='system'?'':e.target.value;localStorage.setItem('bookreative-theme',e.target.value)}; $('contrastToggle').onchange=e=>{document.body.classList.toggle('high-contrast',e.target.checked);localStorage.setItem('bookreative-contrast',e.target.checked)}; $('motionToggle').onchange=e=>{state.reduceMotion=e.target.checked;document.body.classList.toggle('reduce-motion',state.reduceMotion);localStorage.setItem('bookreative-motion',e.target.checked);updateView()};
 const savedTheme=localStorage.getItem('bookreative-theme')||'system';$('themeSelect').value=savedTheme;document.body.dataset.theme=savedTheme==='system'?'':savedTheme;$('contrastToggle').checked=localStorage.getItem('bookreative-contrast')==='true';document.body.classList.toggle('high-contrast',$('contrastToggle').checked);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
 window.addEventListener('resize',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
-window.addEventListener('load',async()=>{await wait(4000);hideLoading()});

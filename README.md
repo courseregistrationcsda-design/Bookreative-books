@@ -44,4 +44,4 @@ All asset references are relative, so the app works when hosted from a repositor
 - LTR and RTL affect spread arrangement and keyboard/next/previous reading direction.
 - Pages are rasterized to JPEG data URLs and retained in memory for this testing prototype. Large-file warnings appear for PDFs over 100 pages or 50 MB.
 - Theme, high contrast, and reduce-motion preferences are stored with `localStorage` without an app-imposed storage cap.
-- The branding copy intentionally follows the requested text: “by Cordillera School fo Digital Arts, Inc.”
+- The interface opens directly into the studio without a splash screen. PDF rendering progress is shown in the reader status line.
