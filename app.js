@@ -9,6 +9,11 @@ async function openPdf(file){
   $('readerStatus').textContent='Opening PDF…';
   state.renderToken++; const token=state.renderToken;
   try {
+    // PDF.js 4.x uses Promise.withResolvers, which is missing on some tablets.
+    // Install a small standards-compatible fallback before dynamically importing PDF.js.
+    if(!Promise.withResolvers){
+      Promise.withResolvers=()=>{let resolve,reject;const promise=new Promise((res,rej)=>{resolve=res;reject=rej});return {promise,resolve,reject};};
+    }
     // Load the 350 KB PDF.js module only when a PDF is actually opened.
     if(!pdfjsLib) { pdfjsLib=await import('./pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='./pdf.worker.min.js'; }
     const buffer=await file.arrayBuffer();
