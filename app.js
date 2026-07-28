@@ -10,7 +10,7 @@ async function openPdf(file){
   state.renderToken++; const token=state.renderToken;
   try {
     // Load the 350 KB PDF.js module only when a PDF is actually opened.
-    if(!pdfjsLib) { pdfjsLib=await import('./vendor/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='./vendor/pdf.worker.min.js'; }
+    if(!pdfjsLib) { pdfjsLib=await import('./pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='./pdf.worker.min.js'; }
     const buffer=await file.arrayBuffer();
     state.pdf=await pdfjsLib.getDocument({data:buffer}).promise;
     state.pages=Array.from({length:state.pdf.numPages},()=>({src:null,width:612,height:792,ratio:612/792}));
@@ -105,41 +105,79 @@ $('nextBtn').onclick=next; $('prevBtn').onclick=prev; $('pageSlider').oninput=e=
 
 // Pointer/touch page turning: drag from a book edge, or swipe across the reader on touch devices.
 const reader=$('reader');
-const drag={active:false,startX:0,lastX:0,pointerId:null,edge:false};
+const drag={active:false,startX:0,lastX:0,pointerId:null,edge:false,startTime:0};
+const pointers=new Map(); let pinchStartDistance=0; let pinchStartZoom=1;
 reader.addEventListener('pointerdown',e=>{
   if(!state.pages.length || e.target.closest('button,input,select,a'))return;
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.size===2){
+    drag.active=false; reader.classList.remove('dragging-reader'); $('bookStage').classList.remove('ltr-drag','rtl-drag','drag-next','drag-prev'); $('bookStage').style.removeProperty('--drag-angle'); $('bookStage').style.removeProperty('--drag-progress');
+    const pts=[...pointers.values()]; pinchStartDistance=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y); pinchStartZoom=state.zoom;
+    reader.setPointerCapture?.(e.pointerId); return;
+  }
   const rect=reader.getBoundingClientRect(); const edgeSize=Math.min(110,rect.width*.22);
   const fromLeft=e.clientX-rect.left<edgeSize, fromRight=rect.right-e.clientX<edgeSize;
   if(e.pointerType==='mouse' && !fromLeft && !fromRight)return;
-  drag.active=true; drag.startX=drag.lastX=e.clientX; drag.pointerId=e.pointerId; drag.edge=fromLeft||fromRight;
+  drag.active=true; drag.startX=drag.lastX=e.clientX; drag.startTime=performance.now(); drag.pointerId=e.pointerId; drag.edge=fromLeft||fromRight;
   reader.setPointerCapture?.(e.pointerId); reader.classList.add('dragging-reader'); $('bookStage').classList.add(state.binding==='rtl'?'rtl-drag':'ltr-drag');
 });
 reader.addEventListener('pointermove',e=>{
+  if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.size>=2){
+    const pts=[...pointers.values()]; const distance=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y);
+    state.zoom=Math.max(.4,Math.min(3,pinchStartZoom*(distance/Math.max(1,pinchStartDistance)))); updateView(); e.preventDefault(); return;
+  }
   if(!drag.active || e.pointerId!==drag.pointerId)return;
   const delta=e.clientX-drag.startX; drag.lastX=e.clientX;
   if(Math.abs(delta)>8)e.preventDefault();
   const max=Math.max(1,reader.clientWidth*.42); let progress=Math.max(-1,Math.min(1,delta/max));
   // A next turn pulls the current right edge left in LTR; RTL reverses the visual direction.
   if(state.binding==='rtl')progress*=-1;
-  $('bookStage').style.setProperty('--drag-angle',`${progress*-78}deg`);
-  $('bookStage').style.setProperty('--drag-progress',Math.abs(progress));
+  const stage=$('bookStage'); stage.classList.toggle('drag-next',progress<0); stage.classList.toggle('drag-prev',progress>=0);
+  stage.style.setProperty('--drag-angle',`${progress*-78}deg`);
+  stage.style.setProperty('--drag-progress',Math.abs(progress));
 });
-function finishDrag(cancel=false){
-  if(!drag.active)return; const delta=drag.lastX-drag.startX; drag.active=false;
+function finishDrag(cancel=false,endX=drag.lastX){
+  if(!drag.active)return; const delta=endX-drag.startX; const elapsed=performance.now()-drag.startTime; drag.active=false;
   reader.classList.remove('dragging-reader');
   if(drag.pointerId!==null)reader.releasePointerCapture?.(drag.pointerId);
-  $('bookStage').classList.remove('ltr-drag','rtl-drag');
+  $('bookStage').classList.remove('ltr-drag','rtl-drag','drag-next','drag-prev');
   $('bookStage').style.removeProperty('--drag-angle'); $('bookStage').style.removeProperty('--drag-progress');
-  if(cancel || Math.abs(delta)<55)return;
+  if(cancel)return;
+  // A short release is a tap: the left half goes back and the right half advances.
+  if(Math.abs(delta)<12 && elapsed<500){
+    const rect=reader.getBoundingClientRect(); endX<rect.left+rect.width/2?prev():next();
+    return;
+  }
+  if(Math.abs(delta)<55)return;
   const visualNext=state.binding==='rtl' ? delta>0 : delta<0;
   visualNext?next():prev();
   drag.pointerId=null;
 }
-reader.addEventListener('pointerup',()=>finishDrag()); reader.addEventListener('pointercancel',()=>finishDrag(true)); reader.addEventListener('lostpointercapture',()=>{if(drag.active)finishDrag(true)});
-$('bindingSelect').onchange=e=>{state.binding=e.target.value;updateView()}; $('viewMode').onchange=e=>{$('scaleWrap').hidden=e.target.value!=='scale';$('customWrap').hidden=e.target.value!=='custom';updateSizing()}; ['scaleInput','customWidth','customHeight'].forEach(id=>$(id).onchange=updateSizing);
+reader.addEventListener('pointerup',e=>{pointers.delete(e.pointerId);finishDrag(false,e.clientX)}); reader.addEventListener('pointercancel',e=>{pointers.delete(e.pointerId);finishDrag(true,e.clientX)}); reader.addEventListener('lostpointercapture',()=>{if(drag.active)finishDrag(true)});
+$('viewMode').onchange=e=>{$('scaleWrap').hidden=e.target.value!=='scale';$('customWrap').hidden=e.target.value!=='custom';updateSizing()}; ['scaleInput','customWidth','customHeight'].forEach(id=>$(id).onchange=updateSizing);
 $('zoomIn').onclick=()=>{state.zoom=Math.min(3,state.zoom+.1);updateView()}; $('zoomOut').onclick=()=>{state.zoom=Math.max(.4,state.zoom-.1);updateView()}; $('zoomReset').onclick=()=>{state.zoom=1;updateView()}; $('fitBtn').onclick=()=>{state.zoom=1;$('viewMode').value='fit';$('scaleWrap').hidden=true;$('customWrap').hidden=true;updateView()};
-$('fullscreenBtn').onclick=()=>{const el=$('reader-shell')||$('reader'); (!document.fullscreenElement?$('reader').requestFullscreen():document.exitFullscreen()).catch(()=>{})}; $('thumbToggle').onclick=()=>{$('thumbPanel').hidden=true; const b=document.createElement('button');b.textContent='Show thumbnails';b.className='thumb-reopen';b.onclick=()=>{$('thumbPanel').hidden=false;b.remove()};$('workspace').prepend(b)};
-document.addEventListener('keydown',e=>{if(e.target.matches('input,select,button'))return;if(['ArrowRight','PageDown'].includes(e.key)){e.preventDefault();state.binding==='rtl'?prev():next()}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();state.binding==='rtl'?next():prev()}if(e.key==='Home')jump(1)});
-$('themeSelect').onchange=e=>{document.body.dataset.theme=e.target.value==='system'?'':e.target.value;localStorage.setItem('bookreative-theme',e.target.value)}; $('contrastToggle').onchange=e=>{document.body.classList.toggle('high-contrast',e.target.checked);localStorage.setItem('bookreative-contrast',e.target.checked)}; $('motionToggle').onchange=e=>{state.reduceMotion=e.target.checked;document.body.classList.toggle('reduce-motion',state.reduceMotion);localStorage.setItem('bookreative-motion',e.target.checked);updateView()};
-const savedTheme=localStorage.getItem('bookreative-theme')||'system';$('themeSelect').value=savedTheme;document.body.dataset.theme=savedTheme==='system'?'':savedTheme;$('contrastToggle').checked=localStorage.getItem('bookreative-contrast')==='true';document.body.classList.toggle('high-contrast',$('contrastToggle').checked);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
+$('fullscreenBtn').onclick=()=>{(!document.fullscreenElement?$('reader').requestFullscreen():document.exitFullscreen()).catch(()=>{})};
+$('rotateBtn').onclick=async()=>{
+  const orientation=screen.orientation; const current=orientation?.type||((innerWidth>innerHeight)?'landscape-primary':'portrait-primary');
+  const target=current.startsWith('landscape')?'portrait-primary':'landscape-primary';
+  try{
+    if(!document.fullscreenElement && $('reader').requestFullscreen)await $('reader').requestFullscreen();
+    if(orientation?.lock)await orientation.lock(target);
+    $('rotateBtn').textContent=target.startsWith('landscape')?'Portrait view':'Landscape view';
+  }catch{
+    // Some mobile browsers only allow orientation changes from their own browser UI.
+    document.body.classList.toggle('orientation-landscape',target.startsWith('landscape'));
+    $('rotateBtn').textContent=target.startsWith('landscape')?'Portrait view':'Landscape view';
+    updateView();
+  }
+};
+window.addEventListener('orientationchange',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
+function toggleThumbnails(){ const panel=$('thumbPanel'), hidden=!panel.hidden; panel.hidden=hidden; $('thumbsBtn').setAttribute('aria-expanded',String(!hidden)); $('thumbsBtn').textContent=hidden?'Show thumbnails':'Hide thumbnails'; }
+$('thumbToggle').onclick=toggleThumbnails; $('thumbsBtn').onclick=toggleThumbnails;
+document.addEventListener('keydown',e=>{if(e.target.matches('input,select,button'))return;if(['ArrowRight','PageDown'].includes(e.key)){e.preventDefault();next()}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev()}if(e.key==='Home')jump(1)});
+function applyTheme(value){document.body.dataset.theme=value==='system'?'':value; localStorage.setItem('bookreative-theme',value); $('themeSelect').value=value;}
+$('themeMenuBtn').onclick=()=>{const select=$('themeSelect'),open=select.hidden;select.hidden=!open;$('themeMenuBtn').setAttribute('aria-expanded',String(open));if(open)select.focus()}; $('themeSelect').onchange=e=>applyTheme(e.target.value);
+$('contrastToggle').onchange=e=>{document.body.classList.toggle('high-contrast',e.target.checked);localStorage.setItem('bookreative-contrast',e.target.checked)}; $('motionToggle').onchange=e=>{state.reduceMotion=e.target.checked;document.body.classList.toggle('reduce-motion',state.reduceMotion);localStorage.setItem('bookreative-motion',e.target.checked);updateView()};
+const savedTheme=localStorage.getItem('bookreative-theme')||'dark';applyTheme(savedTheme);$('contrastToggle').checked=localStorage.getItem('bookreative-contrast')==='true';document.body.classList.toggle('high-contrast',$('contrastToggle').checked);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
 window.addEventListener('resize',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});

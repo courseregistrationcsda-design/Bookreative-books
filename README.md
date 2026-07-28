@@ -9,6 +9,7 @@ A framework-free, static PDF flipbook prototype for Bookreative Books. It uses v
 - `app.js` — PDF import/rendering, flipbook navigation, thumbnails, settings, and persistence
 - `vendor/pdf.min.js` — bundled PDF.js 4.10.38 browser module
 - `vendor/pdf.worker.min.js` — bundled PDF.js worker
+- `pdf.min.js` and `pdf.worker.min.js` — root-level copies used by the app for compatibility with static upload hosts that omit nested folders
 
 ## Run locally
 
@@ -41,7 +42,8 @@ All asset references are relative, so the app works when hosted from a repositor
 ## Notes
 
 - Page 1 is always a single cover; subsequent navigation uses spreads 2–3, 4–5, and so on, with a final single page when needed.
-- LTR and RTL affect spread arrangement and keyboard/next/previous reading direction.
-- Pages are rasterized to JPEG data URLs and retained in memory for this testing prototype. Large-file warnings appear for PDFs over 100 pages or 50 MB.
+- Reading order is intentionally restricted to left-to-right: page 1 is the cover, followed by spreads 2–3, 4–5, and so on.
+- Mobile controls include tap navigation (left half = previous, right half = next), swipe/edge-drag page turns, pinch zoom, and a Rotate view control. Page dimensions are scaled uniformly to preserve each PDF page's aspect ratio.
+- Pages are rasterized to JPEG data URLs and retained in memory for this testing prototype. The cover and first spread render first, then remaining pages render progressively in the background; navigating to an unfinished page triggers its render immediately. Large-file warnings appear for PDFs over 100 pages or 50 MB.
 - Theme, high contrast, and reduce-motion preferences are stored with `localStorage` without an app-imposed storage cap.
 - The interface opens directly into the studio without a splash screen. PDF rendering progress is shown in the reader status line.
