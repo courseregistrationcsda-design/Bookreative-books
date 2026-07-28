@@ -87,16 +87,21 @@ function setPageImage(el,index){
 }
 function updateView(transition=''){
   if(!state.pages.length)return;
-  const stage=$('bookStage'); stage.className='book-stage';
+  const stage=$('bookStage');
+  const previousPages=transition && stage.children.length?[...stage.children].map(node=>node.cloneNode(true)):[];
+  stage.className='book-stage';
   if(state.current===1)stage.classList.add('cover-stage');
   if(state.reduceMotion)stage.classList.add('fade-mode');
   if(transition && !state.reduceMotion)stage.classList.add(`turn-${transition}`);
-  stage.replaceChildren(); const a=document.createElement('div'); a.className='page'; setPageImage(a,state.current); stage.append(a);
+  stage.replaceChildren();
+  if(previousPages.length){const snapshot=document.createElement('div'); snapshot.className='book-snapshot'; snapshot.style.flexDirection='row'; previousPages.forEach(page=>snapshot.append(page)); stage.append(snapshot);}
+  const a=document.createElement('div'); a.className='page'; setPageImage(a,state.current); stage.append(a);
   if(state.current>1 && state.current<state.pages.length){ const b=document.createElement('div'); b.className='page'; setPageImage(b,state.current+1); stage.append(b); }
   stage.style.flexDirection=state.binding==='rtl'?'row-reverse':'row';
   $('pageJump').value=state.current; $('pageSlider').value=state.current; $('prevBtn').disabled=state.current<=1; $('nextBtn').disabled=state.current>=state.pages.length;
   [...document.querySelectorAll('.thumb')].forEach(x=>x.classList.toggle('active',Number(x.dataset.page)===state.current));
   $('readerStatus').textContent=state.current===1?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`;
+  if(previousPages.length)setTimeout(()=>stage.querySelector('.book-snapshot')?.remove(),520);
 }
 function jump(n,transition=''){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(n>1 && n%2===1)n--; state.current=n; ensureThumbnailWindow(n); updateView(transition); }
 function nextSpread(){ if(state.current===1)jump(2,'next'); else jump(state.current+2,'next'); }
