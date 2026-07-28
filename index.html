@@ -11,21 +11,12 @@
   <header class="topbar">
     <a class="brand" href="#" aria-label="Bookreative Studio home"><span class="brand-mark">B</span><span>Bookreative Studio</span></a>
     <div class="toolbar-actions">
-      <label class="check"><input id="contrastToggle" type="checkbox"> High contrast</label>
-      <label class="check"><input id="motionToggle" type="checkbox"> Reduce motion</label>
       <button id="openBtn" class="primary" type="button">Open PDF</button>
       <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
     </div>
   </header>
 
   <main>
-    <section id="dropZone" class="drop-zone" tabindex="0" aria-label="PDF drop zone">
-      <div class="drop-icon" aria-hidden="true">⇧</div>
-      <h2>Drop a PDF here to begin</h2>
-      <p>or <button id="chooseBtn" class="link-button" type="button">choose a PDF file</button> from your device</p>
-      <p class="muted">Everything runs in your browser. Your book is not uploaded.</p>
-    </section>
-
     <section id="workspace" class="workspace">
       <div class="book-toolbar">
         <div class="book-name"><span id="bookTitle">Untitled PDF</span><span id="pageCountLabel" class="muted"></span></div>
@@ -60,7 +51,7 @@
       </div>
     </section>
   </main>
-  <footer><span>Bookreative Studio (Web Prototype) · PDF pages are rendered locally in your browser. · 2026 Cordillera School of Digital Arts, Inc.</span><div class="footer-theme"><button id="themeMenuBtn" type="button" aria-expanded="false">Theme</button><label class="visually-hidden" for="themeSelect">Theme</label><select id="themeSelect" title="Theme" hidden><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div></footer>
+  <footer><span>Bookreative Studio (Web Prototype) · PDF pages are rendered locally in your browser. · 2026 Cordillera School of Digital Arts, Inc.</span><div class="footer-tools"><label class="check"><input id="motionToggle" type="checkbox"> Reduce motion</label><div class="footer-theme"><button id="themeMenuBtn" type="button" aria-expanded="false">Theme</button><label class="visually-hidden" for="themeSelect">Theme</label><select id="themeSelect" title="Theme" hidden><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></footer>
   <script type="module" src="app.js"></script>
 </body>
 </html>

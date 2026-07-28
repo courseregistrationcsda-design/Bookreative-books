@@ -20,7 +20,7 @@ async function openPdf(file){
     $('pageTotal').textContent=`/ ${state.pdf.numPages}`;
     $('pageSlider').max=state.pdf.numPages; $('pageJump').max=state.pdf.numPages;
     $('largeWarning').hidden=!(state.pdf.numPages>100 || file.size>50*1024*1024);
-    $('workspace').hidden=false; $('dropZone').hidden=true;
+    $('workspace').hidden=false;
     buildThumbnails(); updateView();
 
     // Render only the visible cover/spread first so the app becomes usable quickly.
@@ -111,9 +111,8 @@ function next(){ state.binding==='rtl'?prevSpread():nextSpread(); }
 function prev(){ state.binding==='rtl'?nextSpread():prevSpread(); }
 function updateSizing(){ updateView(); }
 
-$('openBtn').onclick=()=> $('fileInput').click(); $('chooseBtn').onclick=()=> $('fileInput').click();
+$('openBtn').onclick=()=> $('fileInput').click();
 $('fileInput').onchange=e=>e.target.files[0]&&openPdf(e.target.files[0]);
-const dz=$('dropZone'); ['dragenter','dragover'].forEach(e=>dz.addEventListener(e,x=>{x.preventDefault();dz.classList.add('dragging')})); ['dragleave','drop'].forEach(e=>dz.addEventListener(e,x=>{x.preventDefault();dz.classList.remove('dragging')})); dz.addEventListener('drop',e=>openPdf(e.dataTransfer.files[0])); dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')$('fileInput').click()});
 $('nextBtn').onclick=next; $('prevBtn').onclick=prev; $('pageSlider').oninput=e=>jump(e.target.value); $('pageJump').onchange=e=>jump(e.target.value);
 
 // Pointer/touch page turning: drag from a book edge, or swipe across the reader on touch devices.
@@ -193,6 +192,6 @@ $('thumbPrev').onclick=()=>{state.thumbStart=Math.max(1,state.thumbStart-10);bui
 document.addEventListener('keydown',e=>{if(e.target.matches('input,select,button'))return;if(['ArrowRight','PageDown'].includes(e.key)){e.preventDefault();next()}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev()}if(e.key==='Home')jump(1)});
 function applyTheme(value){document.body.dataset.theme=value==='system'?'':value; localStorage.setItem('bookreative-theme',value); $('themeSelect').value=value;}
 $('themeMenuBtn').onclick=()=>{const select=$('themeSelect'),open=select.hidden;select.hidden=!open;$('themeMenuBtn').setAttribute('aria-expanded',String(open));if(open)select.focus()}; $('themeSelect').onchange=e=>applyTheme(e.target.value);
-$('contrastToggle').onchange=e=>{document.body.classList.toggle('high-contrast',e.target.checked);localStorage.setItem('bookreative-contrast',e.target.checked)}; $('motionToggle').onchange=e=>{state.reduceMotion=e.target.checked;document.body.classList.toggle('reduce-motion',state.reduceMotion);localStorage.setItem('bookreative-motion',e.target.checked);updateView()};
-const savedTheme=localStorage.getItem('bookreative-theme')||'dark';applyTheme(savedTheme);$('contrastToggle').checked=localStorage.getItem('bookreative-contrast')==='true';document.body.classList.toggle('high-contrast',$('contrastToggle').checked);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
+$('motionToggle').onchange=e=>{state.reduceMotion=e.target.checked;document.body.classList.toggle('reduce-motion',state.reduceMotion);localStorage.setItem('bookreative-motion',state.reduceMotion);updateView()};
+const savedTheme=localStorage.getItem('bookreative-theme')||'dark';applyTheme(savedTheme);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
 window.addEventListener('resize',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
