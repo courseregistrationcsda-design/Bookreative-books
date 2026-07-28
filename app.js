@@ -1,0 +1,85 @@
+import * as pdfjsLib from './vendor/pdf.min.js';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.min.js';
+const $ = id => document.getElementById(id);
+const state = { pdf:null, pages:[], current:1, binding:'ltr', zoom:1, reduceMotion:false, renderToken:0 };
+const loading = $('loadingOverlay');
+
+function showLoading(message='Preparing your studio…') { $('loadingMessage').textContent=message; loading.hidden=false; }
+function hideLoading(){ loading.hidden=true; }
+function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function pageExtent(page){ const v=page.getViewport({scale:1}); return {width:v.width,height:v.height}; }
+function fileIsPdf(file){ return file && (file.type==='application/pdf' || file.name.toLowerCase().endsWith('.pdf')); }
+
+async function openPdf(file){
+  if(!fileIsPdf(file)){ alert('Please choose a PDF file.'); return; }
+  showLoading('Opening and rendering your book…');
+  const started=performance.now(); state.renderToken++; const token=state.renderToken;
+  try {
+    const buffer=await file.arrayBuffer();
+    const task=pdfjsLib.getDocument({data:buffer});
+    state.pdf=await task.promise; state.pages=[];
+    $('bookTitle').textContent=file.name;
+    $('pageCountLabel').textContent=`· ${state.pdf.numPages} pages`;
+    $('pageTotal').textContent=`/ ${state.pdf.numPages}`;
+    $('pageSlider').max=state.pdf.numPages; $('pageJump').max=state.pdf.numPages;
+    $('largeWarning').hidden=!(state.pdf.numPages>100 || file.size>50*1024*1024);
+    $('workspace').hidden=false; $('dropZone').hidden=true;
+    for(let i=1;i<=state.pdf.numPages;i++){
+      if(token!==state.renderToken) return;
+      $('loadingMessage').textContent=`Rendering page ${i} of ${state.pdf.numPages}…`;
+      const page=await state.pdf.getPage(i); const extent=pageExtent(page);
+      const scale=Number($('scaleInput').value)||1.2; const viewport=page.getViewport({scale});
+      const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d',{alpha:false});
+      canvas.width=Math.ceil(viewport.width); canvas.height=Math.ceil(viewport.height);
+      await page.render({canvasContext:ctx,viewport}).promise;
+      state.pages.push({src:canvas.toDataURL('image/jpeg',.88), width:extent.width, height:extent.height, ratio:extent.width/extent.height});
+    }
+    buildThumbnails(); state.current=1; state.zoom=1; updateView();
+  } catch(err){ console.error(err); alert(`Could not open this PDF: ${err.message||err}`); }
+  finally { await wait(Math.max(0,4000-(performance.now()-started))); if(token===state.renderToken) hideLoading(); }
+}
+
+function buildThumbnails(){
+  const box=$('thumbnails'); box.replaceChildren();
+  state.pages.forEach((p,i)=>{ const b=document.createElement('button'); b.className='thumb'; b.type='button'; b.dataset.page=i+1; b.title=`Go to page ${i+1}`; b.innerHTML=`<img src="${p.src}" alt="Page ${i+1} thumbnail"><small>${i+1}</small>`; b.onclick=()=>jump(i+1); box.append(b); });
+}
+function dimensionsFor(p){
+  const mode=$('viewMode').value;
+  if(mode==='scale'){ const s=Number($('scaleInput').value)||1.2; return {w:p.width*s,h:p.height*s}; }
+  if(mode==='custom'){
+    const maxW=Number($('customWidth').value)||700, maxH=Number($('customHeight').value)||900;
+    const s=Math.min(maxW/p.width,maxH/p.height); return {w:p.width*s,h:p.height*s};
+  }
+  // Fit each page into the available reader area while preserving its PDF ratio.
+  const reader=$('reader'); const availableW=Math.max(180,reader.clientWidth-70), availableH=Math.max(220,reader.clientHeight-55);
+  const maxW=state.current===1?availableW*.78:availableW/2-10;
+  const s=Math.min(maxW/p.width,availableH/p.height); return {w:p.width*s,h:p.height*s};
+}
+function setPageImage(el,index){ const p=state.pages[index-1]; const d=dimensionsFor(p); el.style.width=`${d.w*state.zoom}px`; el.style.height=`${d.h*state.zoom}px`; el.innerHTML=''; const img=new Image(); img.src=p.src; img.alt=`Page ${index}`; el.append(img); }
+function updateView(){
+  if(!state.pages.length)return;
+  const stage=$('bookStage'); stage.className='book-stage'; if(state.current===1)stage.classList.add('cover-stage'); if(state.reduceMotion)stage.classList.add('fade-mode');
+  stage.replaceChildren(); const a=document.createElement('div'); a.className='page'; setPageImage(a,state.current); stage.append(a);
+  if(state.current>1 && state.current<state.pages.length){ const b=document.createElement('div'); b.className='page'; setPageImage(b,state.current+1); stage.append(b); if(state.binding==='rtl')stage.style.flexDirection='row-reverse'; else stage.style.flexDirection='row'; } else stage.style.flexDirection='row';
+  $('pageJump').value=state.current; $('pageSlider').value=state.current; $('prevBtn').disabled=state.current<=1; $('nextBtn').disabled=state.current>=state.pages.length;
+  [...document.querySelectorAll('.thumb')].forEach(x=>x.classList.toggle('active',Number(x.dataset.page)===state.current));
+  $('readerStatus').textContent=state.current===1?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`;
+}
+function jump(n){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(n>1 && n%2===1)n--; state.current=n; updateView(); }
+function next(){ if(state.current===1)jump(2); else jump(state.current+2); }
+function prev(){ if(state.current<=2)jump(1); else jump(state.current-2); }
+function updateSizing(){ updateView(); }
+
+$('openBtn').onclick=()=> $('fileInput').click(); $('chooseBtn').onclick=()=> $('fileInput').click();
+$('fileInput').onchange=e=>e.target.files[0]&&openPdf(e.target.files[0]);
+const dz=$('dropZone'); ['dragenter','dragover'].forEach(e=>dz.addEventListener(e,x=>{x.preventDefault();dz.classList.add('dragging')})); ['dragleave','drop'].forEach(e=>dz.addEventListener(e,x=>{x.preventDefault();dz.classList.remove('dragging')})); dz.addEventListener('drop',e=>openPdf(e.dataTransfer.files[0])); dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')$('fileInput').click()});
+$('nextBtn').onclick=next; $('prevBtn').onclick=prev; $('pageSlider').oninput=e=>jump(e.target.value); $('pageJump').onchange=e=>jump(e.target.value);
+$('bindingSelect').onchange=e=>{state.binding=e.target.value;updateView()}; $('viewMode').onchange=e=>{$('scaleWrap').hidden=e.target.value!=='scale';$('customWrap').hidden=e.target.value!=='custom';updateSizing()}; ['scaleInput','customWidth','customHeight'].forEach(id=>$(id).onchange=updateSizing);
+$('zoomIn').onclick=()=>{state.zoom=Math.min(3,state.zoom+.1);updateView()}; $('zoomOut').onclick=()=>{state.zoom=Math.max(.4,state.zoom-.1);updateView()}; $('zoomReset').onclick=()=>{state.zoom=1;updateView()}; $('fitBtn').onclick=()=>{state.zoom=1;$('viewMode').value='fit';$('scaleWrap').hidden=true;$('customWrap').hidden=true;updateView()};
+$('fullscreenBtn').onclick=()=>{const el=$('reader-shell')||$('reader'); (!document.fullscreenElement?$('reader').requestFullscreen():document.exitFullscreen()).catch(()=>{})}; $('thumbToggle').onclick=()=>{$('thumbPanel').hidden=true; const b=document.createElement('button');b.textContent='Show thumbnails';b.className='thumb-reopen';b.onclick=()=>{$('thumbPanel').hidden=false;b.remove()};$('workspace').prepend(b)};
+document.addEventListener('keydown',e=>{if(e.target.matches('input,select,button'))return;if(['ArrowRight','PageDown'].includes(e.key)){e.preventDefault();state.binding==='rtl'?prev():next()}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();state.binding==='rtl'?next():prev()}if(e.key==='Home')jump(1)});
+$('themeSelect').onchange=e=>{document.body.dataset.theme=e.target.value==='system'?'':e.target.value;localStorage.setItem('bookreative-theme',e.target.value)}; $('contrastToggle').onchange=e=>{document.body.classList.toggle('high-contrast',e.target.checked);localStorage.setItem('bookreative-contrast',e.target.checked)}; $('motionToggle').onchange=e=>{state.reduceMotion=e.target.checked;document.body.classList.toggle('reduce-motion',state.reduceMotion);localStorage.setItem('bookreative-motion',e.target.checked);updateView()};
+const savedTheme=localStorage.getItem('bookreative-theme')||'system';$('themeSelect').value=savedTheme;document.body.dataset.theme=savedTheme==='system'?'':savedTheme;$('contrastToggle').checked=localStorage.getItem('bookreative-contrast')==='true';document.body.classList.toggle('high-contrast',$('contrastToggle').checked);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
+window.addEventListener('resize',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
+window.addEventListener('load',async()=>{await wait(4000);hideLoading()});
