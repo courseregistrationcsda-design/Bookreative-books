@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Bookreative Studio — a browser-only PDF flipbook prototype.">
+  <title>Bookreative Studio (Web Prototype)</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="dark">
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Bookreative Studio home"><span class="brand-mark">B</span><span>Bookreative Studio</span></a>
+    <div class="toolbar-actions">
+      <button id="openBtn" class="primary" type="button">Open PDF</button>
+      <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
+    </div>
+  </header>
+
+  <main>
+    <section id="workspace" class="workspace">
+      <div class="book-toolbar">
+        <div class="book-name"><span id="bookTitle">Untitled PDF</span><span id="pageCountLabel" class="muted"></span></div>
+        <div class="control-group">
+          <span class="reading-order">Reading order: Left → Right</span>
+          <label for="pageView">Page view</label><select id="pageView"><option value="book">Book: cover + spreads</option><option value="spread">Two-page spread</option><option value="single">One page</option></select>
+          <label for="viewMode">Sizing</label><select id="viewMode"><option value="fit">Fit to view</option><option value="scale">Scale</option><option value="custom">Custom dimensions</option></select>
+          <label id="scaleWrap" hidden for="scaleInput">Scale <input id="scaleInput" type="number" min="0.5" max="4" step="0.1" value="1.2">×</label>
+          <label id="customWrap" hidden>W <input id="customWidth" type="number" min="100" step="10" value="700"> H <input id="customHeight" type="number" min="100" step="10" value="900"></label>
+        </div>
+      </div>
+      <div id="largeWarning" class="warning" hidden role="alert">This is a large PDF. Keeping every rendered page in memory may use significant memory. Close other tabs if your device becomes slow.</div>
+      <div class="reader-layout">
+        <aside id="thumbPanel" class="thumb-panel" hidden aria-label="Page thumbnails">
+          <div class="panel-heading"><strong>Pages</strong><button id="thumbToggle" type="button" aria-label="Hide thumbnails">×</button></div>
+          <div id="thumbnails" class="thumbnails"></div>
+          <div class="thumb-pagination"><button id="thumbPrev" type="button" aria-label="Previous 10 thumbnails">‹</button><span id="thumbRange">1–10</span><button id="thumbNext" type="button" aria-label="Next 10 thumbnails">›</button></div>
+        </aside>
+        <section class="reader-shell">
+          <div id="reader" class="reader" tabindex="0" aria-label="Flipbook viewer">
+            <div id="bookStage" class="book-stage"><div class="empty-reader">Your pages will appear here.</div></div>
+          </div>
+          <div class="reader-controls">
+            <button id="thumbsBtn" type="button" title="Toggle page thumbnails" aria-expanded="false">Show thumbnails</button><button id="prevBtn" type="button" title="Previous page (Left arrow or Page Up)">‹ Prev</button>
+            <button id="nextBtn" class="primary" type="button" title="Next page (Right arrow or Page Down)">Next ›</button>
+            <label class="page-jump">Page <input id="pageJump" type="number" min="1" value="1"><span id="pageTotal">/ 0</span></label>
+            <input id="pageSlider" class="page-slider" type="range" min="1" max="1" value="1" aria-label="Page slider">
+            <button id="zoomOut" type="button" title="Zoom out">−</button><button id="zoomReset" type="button" title="Reset zoom">100%</button><button id="zoomIn" type="button" title="Zoom in">+</button><button id="fitBtn" type="button">Fit</button><button id="rotateBtn" type="button" title="Rotate between portrait and landscape">Rotate view</button><button id="fullscreenBtn" type="button">Fullscreen</button>
+          </div>
+          <div id="readerStatus" class="reader-status" aria-live="polite">No book loaded.</div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <footer><span>Bookreative Studio (Web Prototype) · PDF pages are rendered locally in your browser. · 2026 Cordillera School of Digital Arts, Inc.</span><div class="footer-tools"><label class="check"><input id="motionToggle" type="checkbox"> Reduce motion</label><div class="footer-theme"><button id="themeMenuBtn" type="button" aria-expanded="false">Theme</button><label class="visually-hidden" for="themeSelect">Theme</label><select id="themeSelect" title="Theme" hidden><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
