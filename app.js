@@ -81,6 +81,40 @@ $('openBtn').onclick=()=> $('fileInput').click(); $('chooseBtn').onclick=()=> $(
 $('fileInput').onchange=e=>e.target.files[0]&&openPdf(e.target.files[0]);
 const dz=$('dropZone'); ['dragenter','dragover'].forEach(e=>dz.addEventListener(e,x=>{x.preventDefault();dz.classList.add('dragging')})); ['dragleave','drop'].forEach(e=>dz.addEventListener(e,x=>{x.preventDefault();dz.classList.remove('dragging')})); dz.addEventListener('drop',e=>openPdf(e.dataTransfer.files[0])); dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')$('fileInput').click()});
 $('nextBtn').onclick=next; $('prevBtn').onclick=prev; $('pageSlider').oninput=e=>jump(e.target.value); $('pageJump').onchange=e=>jump(e.target.value);
+
+// Pointer/touch page turning: drag from a book edge, or swipe across the reader on touch devices.
+const reader=$('reader');
+const drag={active:false,startX:0,lastX:0,pointerId:null,edge:false};
+reader.addEventListener('pointerdown',e=>{
+  if(!state.pages.length || e.target.closest('button,input,select,a'))return;
+  const rect=reader.getBoundingClientRect(); const edgeSize=Math.min(110,rect.width*.22);
+  const fromLeft=e.clientX-rect.left<edgeSize, fromRight=rect.right-e.clientX<edgeSize;
+  if(e.pointerType==='mouse' && !fromLeft && !fromRight)return;
+  drag.active=true; drag.startX=drag.lastX=e.clientX; drag.pointerId=e.pointerId; drag.edge=fromLeft||fromRight;
+  reader.setPointerCapture?.(e.pointerId); reader.classList.add('dragging-reader'); $('bookStage').classList.add(state.binding==='rtl'?'rtl-drag':'ltr-drag');
+});
+reader.addEventListener('pointermove',e=>{
+  if(!drag.active || e.pointerId!==drag.pointerId)return;
+  const delta=e.clientX-drag.startX; drag.lastX=e.clientX;
+  if(Math.abs(delta)>8)e.preventDefault();
+  const max=Math.max(1,reader.clientWidth*.42); let progress=Math.max(-1,Math.min(1,delta/max));
+  // A next turn pulls the current right edge left in LTR; RTL reverses the visual direction.
+  if(state.binding==='rtl')progress*=-1;
+  $('bookStage').style.setProperty('--drag-angle',`${progress*-78}deg`);
+  $('bookStage').style.setProperty('--drag-progress',Math.abs(progress));
+});
+function finishDrag(cancel=false){
+  if(!drag.active)return; const delta=drag.lastX-drag.startX; drag.active=false;
+  reader.classList.remove('dragging-reader');
+  if(drag.pointerId!==null)reader.releasePointerCapture?.(drag.pointerId);
+  $('bookStage').classList.remove('ltr-drag','rtl-drag');
+  $('bookStage').style.removeProperty('--drag-angle'); $('bookStage').style.removeProperty('--drag-progress');
+  if(cancel || Math.abs(delta)<55)return;
+  const visualNext=state.binding==='rtl' ? delta>0 : delta<0;
+  visualNext?next():prev();
+  drag.pointerId=null;
+}
+reader.addEventListener('pointerup',()=>finishDrag()); reader.addEventListener('pointercancel',()=>finishDrag(true)); reader.addEventListener('lostpointercapture',()=>{if(drag.active)finishDrag(true)});
 $('bindingSelect').onchange=e=>{state.binding=e.target.value;updateView()}; $('viewMode').onchange=e=>{$('scaleWrap').hidden=e.target.value!=='scale';$('customWrap').hidden=e.target.value!=='custom';updateSizing()}; ['scaleInput','customWidth','customHeight'].forEach(id=>$(id).onchange=updateSizing);
 $('zoomIn').onclick=()=>{state.zoom=Math.min(3,state.zoom+.1);updateView()}; $('zoomOut').onclick=()=>{state.zoom=Math.max(.4,state.zoom-.1);updateView()}; $('zoomReset').onclick=()=>{state.zoom=1;updateView()}; $('fitBtn').onclick=()=>{state.zoom=1;$('viewMode').value='fit';$('scaleWrap').hidden=true;$('customWrap').hidden=true;updateView()};
 $('fullscreenBtn').onclick=()=>{const el=$('reader-shell')||$('reader'); (!document.fullscreenElement?$('reader').requestFullscreen():document.exitFullscreen()).catch(()=>{})}; $('thumbToggle').onclick=()=>{$('thumbPanel').hidden=true; const b=document.createElement('button');b.textContent='Show thumbnails';b.className='thumb-reopen';b.onclick=()=>{$('thumbPanel').hidden=false;b.remove()};$('workspace').prepend(b)};
