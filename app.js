@@ -57,18 +57,24 @@ function dimensionsFor(p){
   const s=Math.min(maxW/p.width,availableH/p.height); return {w:p.width*s,h:p.height*s};
 }
 function setPageImage(el,index){ const p=state.pages[index-1]; const d=dimensionsFor(p); el.style.width=`${d.w*state.zoom}px`; el.style.height=`${d.h*state.zoom}px`; el.innerHTML=''; const img=new Image(); img.src=p.src; img.alt=`Page ${index}`; el.append(img); }
-function updateView(){
+function updateView(transition=''){
   if(!state.pages.length)return;
-  const stage=$('bookStage'); stage.className='book-stage'; if(state.current===1)stage.classList.add('cover-stage'); if(state.reduceMotion)stage.classList.add('fade-mode');
+  const stage=$('bookStage'); stage.className='book-stage';
+  if(state.current===1)stage.classList.add('cover-stage');
+  if(state.reduceMotion)stage.classList.add('fade-mode');
+  if(transition && !state.reduceMotion)stage.classList.add(`turn-${transition}`);
   stage.replaceChildren(); const a=document.createElement('div'); a.className='page'; setPageImage(a,state.current); stage.append(a);
-  if(state.current>1 && state.current<state.pages.length){ const b=document.createElement('div'); b.className='page'; setPageImage(b,state.current+1); stage.append(b); if(state.binding==='rtl')stage.style.flexDirection='row-reverse'; else stage.style.flexDirection='row'; } else stage.style.flexDirection='row';
+  if(state.current>1 && state.current<state.pages.length){ const b=document.createElement('div'); b.className='page'; setPageImage(b,state.current+1); stage.append(b); }
+  stage.style.flexDirection=state.binding==='rtl'?'row-reverse':'row';
   $('pageJump').value=state.current; $('pageSlider').value=state.current; $('prevBtn').disabled=state.current<=1; $('nextBtn').disabled=state.current>=state.pages.length;
   [...document.querySelectorAll('.thumb')].forEach(x=>x.classList.toggle('active',Number(x.dataset.page)===state.current));
   $('readerStatus').textContent=state.current===1?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`;
 }
-function jump(n){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(n>1 && n%2===1)n--; state.current=n; updateView(); }
-function next(){ if(state.current===1)jump(2); else jump(state.current+2); }
-function prev(){ if(state.current<=2)jump(1); else jump(state.current-2); }
+function jump(n,transition=''){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(n>1 && n%2===1)n--; state.current=n; updateView(transition); }
+function nextSpread(){ if(state.current===1)jump(2,'next'); else jump(state.current+2,'next'); }
+function prevSpread(){ if(state.current<=2)jump(1,'prev'); else jump(state.current-2,'prev'); }
+function next(){ state.binding==='rtl'?prevSpread():nextSpread(); }
+function prev(){ state.binding==='rtl'?nextSpread():prevSpread(); }
 function updateSizing(){ updateView(); }
 
 $('openBtn').onclick=()=> $('fileInput').click(); $('chooseBtn').onclick=()=> $('fileInput').click();
