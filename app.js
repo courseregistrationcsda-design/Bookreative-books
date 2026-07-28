@@ -28,33 +28,43 @@ async function openPdf(file){
     $('workspace').hidden=false;
     buildThumbnails(); updateView();
 
-    // Render only the visible cover/spread first so the app becomes usable quickly.
-    await Promise.all([renderPage(1,token), state.pdf.numPages>1?renderPage(2,token):Promise.resolve()]);
+    // Render only the cover first so lower-memory tablets become usable quickly.
+    await renderPage(1,token);
     if(token!==state.renderToken)return;
     updateView();
+    // The second page and the rest render progressively; a single bad page must not abort the book.
+    if(state.pdf.numPages>1)renderPage(2,token).catch(err=>console.warn('Page 2 render failed',err));
     renderRemainingPages(token); // Continue in the background without blocking navigation.
   } catch(err){ console.error(err); alert(`Could not open this PDF: ${err.message||err}`); }
   finally { if(token===state.renderToken && !state.pages.some(p=>p.src)) $('readerStatus').textContent='No pages rendered.'; }
 }
 
+function safeRenderScale(width,height){
+  const requested=Number($('scaleInput').value)||1.2;
+  const touchDevice=navigator.maxTouchPoints>0 || innerWidth<900;
+  const lowMemory=navigator.deviceMemory&&navigator.deviceMemory<=2;
+  const maxArea=(touchDevice||lowMemory)?6000000:18000000, maxDimension=(touchDevice||lowMemory)?3072:4096;
+  return Math.min(requested,Math.sqrt(maxArea/(width*height)),maxDimension/Math.max(width,height));
+}
 async function renderPage(index,token=state.renderToken){
   const p=state.pages[index-1];
   if(!p || p.src || state.rendering.has(index) || token!==state.renderToken)return;
   state.rendering.add(index);
   try{
     const page=await state.pdf.getPage(index); const extent=pageExtent(page); p.width=extent.width; p.height=extent.height; p.ratio=extent.width/extent.height;
-    const scale=Number($('scaleInput').value)||1.2; const viewport=page.getViewport({scale});
-    const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d',{alpha:false});
+    const scale=safeRenderScale(extent.width,extent.height); const viewport=page.getViewport({scale});
+    const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d',{alpha:false,willReadFrequently:false});
     canvas.width=Math.ceil(viewport.width); canvas.height=Math.ceil(viewport.height);
-    await page.render({canvasContext:ctx,viewport}).promise;
-    if(token===state.renderToken){p.src=canvas.toDataURL('image/jpeg',.86); updateThumbnail(index); if(index===state.current||index===state.current+1)updateView();}
+    await page.render({canvasContext:ctx,viewport, intent:'display'}).promise;
+    if(token===state.renderToken){p.src=canvas.toDataURL('image/jpeg',navigator.maxTouchPoints>0?.78:.86); updateThumbnail(index); if(index===state.current||index===state.current+1)updateView();}
+    page.cleanup?.(); canvas.width=1; canvas.height=1;
   } finally { state.rendering.delete(index); }
 }
 async function renderRemainingPages(token){
   for(let i=1;i<=state.pages.length;i++){
     if(token!==state.renderToken)return;
-    await renderPage(i,token);
-    if(i%3===0)await new Promise(requestAnimationFrame);
+    try{await renderPage(i,token)}catch(err){state.pages[i-1].error=true;console.warn(`Page ${i} render failed`,err)}
+    if(i%2===0)await new Promise(requestAnimationFrame);
   }
   if(token===state.renderToken)$('readerStatus').textContent=state.current===1?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`;
 }
@@ -88,7 +98,7 @@ function dimensionsFor(p){
 }
 function setPageImage(el,index){
   const p=state.pages[index-1]; const d=dimensionsFor(p); el.style.width=`${d.w*state.zoom}px`; el.style.height=`${d.h*state.zoom}px`; el.replaceChildren();
-  if(p.src){const img=new Image();img.src=p.src;img.alt=`Page ${index}`;el.append(img);}else{const loadingPage=document.createElement('span');loadingPage.className='page-placeholder';loadingPage.textContent=`Rendering page ${index}…`;el.append(loadingPage);renderPage(index);}
+  if(p.src){const img=new Image();img.src=p.src;img.alt=`Page ${index}`;el.append(img);}else{const loadingPage=document.createElement('span');loadingPage.className='page-placeholder';loadingPage.textContent=p.error?`Page ${index} could not render`:`Rendering page ${index}…`;el.append(loadingPage);if(!p.error)renderPage(index);}
 }
 function updateView(transition=''){
   if(!state.pages.length)return;
