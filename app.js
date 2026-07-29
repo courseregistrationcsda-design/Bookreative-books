@@ -121,9 +121,9 @@ function updateView(transition=''){
   if(transition && !state.reduceMotion)stage.classList.add(`turn-${transition}`);
   stage.replaceChildren();
   if(previousPages.length){const snapshot=document.createElement('div'); snapshot.className='book-snapshot'; snapshot.style.flexDirection='row'; previousPages.forEach(page=>snapshot.append(page)); stage.append(snapshot);}
-  const a=document.createElement('div'); a.className='page'; setPageImage(a,state.current); stage.append(a);
+  const a=document.createElement('div'); a.className='page leaf'; setPageImage(a,state.current); stage.append(a);
   const showSpread=state.pageView!=='single' && !(state.pageView==='book' && state.current===1);
-  if(showSpread && state.current<state.pages.length){ const b=document.createElement('div'); b.className='page'; setPageImage(b,state.current+1); stage.append(b); }
+  if(showSpread && state.current<state.pages.length){ const b=document.createElement('div'); b.className='page leaf'; setPageImage(b,state.current+1); stage.append(b); }
   stage.style.flexDirection=state.binding==='rtl'?'row-reverse':'row';
   $('pageJump').value=state.current; $('pageSlider').value=state.current; $('prevBtn').disabled=state.current<=1; $('nextBtn').disabled=state.current>=state.pages.length;
   [...document.querySelectorAll('.thumb')].forEach(x=>x.classList.toggle('active',Number(x.dataset.page)===state.current));
