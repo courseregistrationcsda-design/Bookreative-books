@@ -1,21 +1,24 @@
 let pdfjsLib;
 const $ = id => document.getElementById(id);
 const state = { pdf:null, pages:[], current:1, binding:'ltr', pageView:'book', zoom:1, reduceMotion:false, renderToken:0, rendering:new Set(), thumbStart:1 };
+// Keep the control dock outside scrolling content so its edge-to-edge fixed position is reliable.
+const controlDock=document.querySelector('.controls-dock'); if(controlDock)document.body.append(controlDock);
 function pageExtent(page){ const v=page.getViewport({scale:1}); return {width:v.width,height:v.height}; }
 function fileIsPdf(file){ return file && (file.type==='application/pdf' || file.name.toLowerCase().endsWith('.pdf')); }
+async function loadPdfJs(){
+  if(pdfjsLib)return pdfjsLib;
+  if(globalThis.pdfjsLib){pdfjsLib=globalThis.pdfjsLib;}
+  else await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./pdf.min.js';script.async=true;script.onload=()=>{pdfjsLib=globalThis.pdfjsLib;pdfjsLib?resolve():reject(new Error('PDF.js loaded without a global pdfjsLib'))};script.onerror=()=>reject(new Error('Could not load local PDF.js'));document.head.append(script)});
+  pdfjsLib.GlobalWorkerOptions.workerSrc='./pdf.worker.min.js'; return pdfjsLib;
+}
 
 async function openPdf(file){
   if(!fileIsPdf(file)){ alert('Please choose a PDF file.'); return; }
-  $('readerStatus').textContent='Opening PDF…';
+  document.body.classList.remove('no-book'); $('readerStatus').textContent='Opening PDF…';
   state.renderToken++; const token=state.renderToken;
   try {
-    // PDF.js 4.x uses Promise.withResolvers, which is missing on some tablets.
-    // Install a small standards-compatible fallback before dynamically importing PDF.js.
-    if(!Promise.withResolvers){
-      Promise.withResolvers=()=>{let resolve,reject;const promise=new Promise((res,rej)=>{resolve=res;reject=rej});return {promise,resolve,reject};};
-    }
-    // Load the 350 KB PDF.js module only when a PDF is actually opened.
-    if(!pdfjsLib) { pdfjsLib=await import('./pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='./pdf.worker.min.js'; }
+    // Load the tablet-compatible PDF.js 3.11 legacy browser bundle only when needed.
+    await loadPdfJs();
     const buffer=await file.arrayBuffer();
     state.pdf=await pdfjsLib.getDocument({data:buffer}).promise;
     state.pages=Array.from({length:state.pdf.numPages},()=>({src:null,width:612,height:792,ratio:612/792}));
@@ -192,20 +195,6 @@ $('pageView').onchange=e=>{state.pageView=e.target.value;if(state.pages.length)j
 $('viewMode').onchange=e=>{$('scaleWrap').hidden=e.target.value!=='scale';$('customWrap').hidden=e.target.value!=='custom';updateSizing()}; ['scaleInput','customWidth','customHeight'].forEach(id=>$(id).onchange=updateSizing);
 $('zoomIn').onclick=()=>{state.zoom=Math.min(3,state.zoom+.1);updateView()}; $('zoomOut').onclick=()=>{state.zoom=Math.max(.4,state.zoom-.1);updateView()}; $('zoomReset').onclick=()=>{state.zoom=1;updateView()}; $('fitBtn').onclick=()=>{state.zoom=1;$('viewMode').value='fit';$('scaleWrap').hidden=true;$('customWrap').hidden=true;updateView()};
 $('fullscreenBtn').onclick=()=>{(!document.fullscreenElement?$('reader').requestFullscreen():document.exitFullscreen()).catch(()=>{})};
-$('rotateBtn').onclick=async()=>{
-  const orientation=screen.orientation; const current=orientation?.type||((innerWidth>innerHeight)?'landscape-primary':'portrait-primary');
-  const target=current.startsWith('landscape')?'portrait-primary':'landscape-primary';
-  try{
-    if(!document.fullscreenElement && $('reader').requestFullscreen)await $('reader').requestFullscreen();
-    if(orientation?.lock)await orientation.lock(target);
-    $('rotateBtn').textContent=target.startsWith('landscape')?'Portrait view':'Landscape view';
-  }catch{
-    // Some mobile browsers only allow orientation changes from their own browser UI.
-    document.body.classList.toggle('orientation-landscape',target.startsWith('landscape'));
-    $('rotateBtn').textContent=target.startsWith('landscape')?'Portrait view':'Landscape view';
-    updateView();
-  }
-};
 window.addEventListener('orientationchange',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
 function toggleThumbnails(){ const panel=$('thumbPanel'), hidden=panel.classList.contains('is-hidden'); panel.classList.toggle('is-hidden',!hidden); $('thumbsBtn').setAttribute('aria-expanded',String(hidden)); $('thumbsBtn').textContent=hidden?'Hide thumbnails':'Show thumbnails'; }
 $('thumbToggle').onclick=toggleThumbnails; $('thumbsBtn').onclick=toggleThumbnails;

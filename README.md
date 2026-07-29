@@ -8,9 +8,9 @@ A framework-free, static PDF flipbook prototype for Bookreative Books. It uses v
 - `BOOKREATIVE.png` — responsive Bookreative branding logo used in the header
 - `styles.css` — responsive styling, themes, focus states, and motion styles
 - `app.js` — PDF import/rendering, flipbook navigation, thumbnails, settings, and persistence
-- `vendor/pdf.min.js` — bundled PDF.js 4.10.38 browser module
-- `vendor/pdf.worker.min.js` — bundled PDF.js worker
-- `pdf.min.js` and `pdf.worker.min.js` — root-level copies used by the app for compatibility with static upload hosts that omit nested folders
+- `vendor/pdf.min.js` — bundled PDF.js 3.11.174 tablet-compatible browser bundle
+- `vendor/pdf.worker.min.js` — bundled PDF.js 3.11.174 worker
+- `pdf.min.js` and `pdf.worker.min.js` — root-level copies used by the app for compatibility with static upload hosts that omit nested folders; the app loads these as a classic script for older tablet browsers
 
 ## Run locally
 
@@ -44,7 +44,7 @@ All asset references are relative, so the app works when hosted from a repositor
 
 - Page 1 is always a single cover; subsequent navigation uses spreads 2–3, 4–5, and so on, with a final single page when needed.
 - Reading order is intentionally restricted to left-to-right. Page view choices include Book (cover + spreads), Two-page spread, and One page. Navigation uses a horizontal slide transition: the new view enters from the right when advancing and from the left when going back, over the previous view.
-- Mobile controls include tap navigation (left half = previous, right half = next), swipe/edge-drag page turns, pinch zoom, and a Rotate view control. Page dimensions are scaled uniformly to preserve each PDF page's aspect ratio.
+- Mobile controls include tap navigation (left half = previous, right half = next), swipe/edge-drag page turns, and pinch zoom. The layout responds automatically to portrait and landscape orientation. Page dimensions are scaled uniformly to preserve each PDF page's aspect ratio.
 - Thumbnails are hidden by default. When enabled, the panel shows a maximum of 10 thumbnails at a time with previous/next thumbnail-window controls.
 - Pages are rasterized to JPEG data URLs and retained in memory for this testing prototype. The cover and first spread render first, then remaining pages render progressively in the background; navigating to an unfinished page triggers its render immediately. Large-file warnings appear for PDFs over 100 pages or 50 MB.
 - Theme and reduce-motion preferences are stored with `localStorage` without an app-imposed storage cap. The palette is based on the supplied image: Ocean Depth (`#0D1B2A`), Sunbeam (`#FFB703`), Deep Sea (`#2A9D8F`), and Lavender Haze (`#8E70C3`). Dark mode uses Ocean Depth rather than black.
