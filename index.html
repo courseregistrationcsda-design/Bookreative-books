@@ -7,13 +7,21 @@
   <title>Bookreative Books</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body data-theme="dark" class="no-book">
+<body data-theme="light" class="no-book">
   <header class="topbar">
     <a class="brand" href="https://www.facebook.com/CordilleraSchoolofDigitalArts" target="_blank" rel="noopener noreferrer" aria-label="Visit Cordillera School of Digital Arts on Facebook"><img class="brand-logo" src="./BOOKREATIVE.png" alt="Bookreative Books"></a>
     <div class="header-book-info"><span id="bookTitle">Untitled PDF</span><span id="pageCountLabel" class="muted"></span></div>
     <div class="toolbar-actions">
       <button id="openBtn" class="primary" type="button">Open PDF</button>
+      <button id="settingsBtn" class="settings-icon" type="button" aria-label="Open page view and theme settings" aria-expanded="false">⚙</button>
       <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
+    </div>
+    <div id="settingsPopover" class="settings-popover" hidden>
+      <label for="pageView">Page view</label><select id="pageView"><option value="book">Book: cover + spreads</option><option value="spread">Two-page spread</option><option value="single">One page</option></select>
+      <label for="viewMode">Sizing</label><select id="viewMode"><option value="fit">Fit to view</option><option value="scale">Scale</option><option value="custom">Custom dimensions</option></select>
+      <label id="scaleWrap" hidden for="scaleInput">Scale <input id="scaleInput" type="number" min="0.5" max="4" step="0.1" value="1.2">×</label>
+      <label id="customWrap" hidden>W <input id="customWidth" type="number" min="100" step="10" value="700"> H <input id="customHeight" type="number" min="100" step="10" value="900"></label>
+      <div class="settings-theme"><button id="themeMenuBtn" type="button" aria-expanded="false">Theme</button><label class="visually-hidden" for="themeSelect">Theme</label><select id="themeSelect" title="Theme" hidden><option value="dark">Deep Teal · dark</option><option value="light">Warm Ivory · light</option><option value="deepsea">Teal · dark</option><option value="lavender">Coral · accent</option></select></div>
     </div>
   </header>
 
@@ -38,14 +46,7 @@
               <input id="pageSlider" class="page-slider" type="range" min="1" max="1" value="1" aria-label="Page slider">
               <button id="zoomOut" type="button" title="Zoom out">−</button><button id="zoomReset" type="button" title="Reset zoom">100%</button><button id="zoomIn" type="button" title="Zoom in">+</button><button id="fitBtn" type="button">Fit</button>
             </div>
-            <div class="reader-settings" aria-label="Reading and page sizing options">
-              <label for="pageView">Page view</label><select id="pageView"><option value="book">Book: cover + spreads</option><option value="spread">Two-page spread</option><option value="single">One page</option></select>
-              <label for="viewMode">Sizing</label><select id="viewMode"><option value="fit">Fit to view</option><option value="scale">Scale</option><option value="custom">Custom dimensions</option></select>
-              <label id="scaleWrap" hidden for="scaleInput">Scale <input id="scaleInput" type="number" min="0.5" max="4" step="0.1" value="1.2">×</label>
-              <label id="customWrap" hidden>W <input id="customWidth" type="number" min="100" step="10" value="700"> H <input id="customHeight" type="number" min="100" step="10" value="900"></label>
-              <div class="settings-theme"><button id="themeMenuBtn" type="button" aria-expanded="false">Theme</button><label class="visually-hidden" for="themeSelect">Theme</label><select id="themeSelect" title="Theme" hidden><option value="dark">Deep Teal · dark</option><option value="light">Warm Ivory · light</option><option value="deepsea">Teal · dark</option><option value="lavender">Coral · accent</option></select></div>
-            </div>
-            <div id="readerStatus" class="reader-status" aria-live="polite">No book loaded.</div>
+
           </div>
         </section>
       </div>

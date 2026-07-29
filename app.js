@@ -1,5 +1,6 @@
 let pdfjsLib;
 const $ = id => document.getElementById(id);
+const setStatus = message => { const el=$('readerStatus'); if(el)el.textContent=message; };
 const state = { pdf:null, pages:[], current:1, binding:'ltr', pageView:'book', zoom:1, reduceMotion:false, renderToken:0, rendering:new Set(), thumbStart:1 };
 // Keep the control dock outside scrolling content so its edge-to-edge fixed position is reliable.
 const controlDock=document.querySelector('.controls-dock'); if(controlDock)document.body.append(controlDock);
@@ -14,7 +15,7 @@ async function loadPdfJs(){
 
 async function openPdf(file){
   if(!fileIsPdf(file)){ alert('Please choose a PDF file.'); return; }
-  document.body.classList.remove('no-book'); $('readerStatus').textContent='Opening PDF…';
+  document.body.classList.remove('no-book'); setStatus('Opening PDF…');
   state.renderToken++; const token=state.renderToken;
   try {
     // Load the tablet-compatible PDF.js 3.11 legacy browser bundle only when needed.
@@ -28,7 +29,7 @@ async function openPdf(file){
     $('pageTotal').textContent=`/ ${state.pdf.numPages}`;
     $('pageSlider').max=state.pdf.numPages; $('pageJump').max=state.pdf.numPages;
     $('largeWarning').hidden=!(state.pdf.numPages>100 || file.size>50*1024*1024);
-    $('workspace').hidden=false;
+    $('viewMode').value='fit'; $('scaleWrap').hidden=true; $('customWrap').hidden=true; $('workspace').hidden=false;
     buildThumbnails(); updateView();
 
     // Render only the visible cover/spread first so lower-memory tablets become usable quickly.
@@ -38,7 +39,7 @@ async function openPdf(file){
     // Desktop continues in the background; tablets stay on-demand to avoid memory crashes.
     renderRemainingPages(token);
   } catch(err){ console.error(err); alert(`Could not open this PDF: ${err.message||err}`); }
-  finally { if(token===state.renderToken && !state.pages.some(p=>p.src)) $('readerStatus').textContent='No pages rendered.'; }
+  finally { if(token===state.renderToken && !state.pages.some(p=>p.src)) setStatus('No pages rendered.'); }
 }
 
 function safeRenderScale(width,height){
@@ -75,7 +76,7 @@ async function renderRemainingPages(token){
     try{await renderPage(i,token)}catch(err){state.pages[i-1].error=true;console.warn(`Page ${i} render failed`,err)}
     if(i%2===0)await new Promise(requestAnimationFrame);
   }
-  if(token===state.renderToken)$('readerStatus').textContent=state.current===1?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`;
+  if(token===state.renderToken)setStatus(state.current===1?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`);
 }
 
 function buildThumbnails(){
@@ -125,7 +126,7 @@ function updateView(transition=''){
   stage.style.flexDirection=state.binding==='rtl'?'row-reverse':'row';
   $('pageJump').value=state.current; $('pageSlider').value=state.current; $('prevBtn').disabled=state.current<=1; $('nextBtn').disabled=state.current>=state.pages.length;
   [...document.querySelectorAll('.thumb')].forEach(x=>x.classList.toggle('active',Number(x.dataset.page)===state.current));
-  $('readerStatus').textContent=state.pageView==='single'?`Page ${state.current} of ${state.pages.length}`:(state.current===1&&state.pageView==='book'?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`);
+  setStatus(state.pageView==='single'?`Page ${state.current} of ${state.pages.length}`:(state.current===1&&state.pageView==='book'?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`));
   if(previousPages.length)setTimeout(()=>stage.querySelector('.book-snapshot')?.remove(),520);
 }
 function jump(n,transition=''){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(state.pageView!=='single' && n>1 && n%2===1)n--; state.current=n; ensureThumbnailWindow(n); updateView(transition); ensureVisiblePages(state.renderToken); }
@@ -195,6 +196,8 @@ $('pageView').onchange=e=>{state.pageView=e.target.value;if(state.pages.length)j
 $('viewMode').onchange=e=>{$('scaleWrap').hidden=e.target.value!=='scale';$('customWrap').hidden=e.target.value!=='custom';updateSizing()}; ['scaleInput','customWidth','customHeight'].forEach(id=>$(id).onchange=updateSizing);
 $('zoomIn').onclick=()=>{state.zoom=Math.min(3,state.zoom+.1);updateView()}; $('zoomOut').onclick=()=>{state.zoom=Math.max(.4,state.zoom-.1);updateView()}; $('zoomReset').onclick=()=>{state.zoom=1;updateView()}; $('fitBtn').onclick=()=>{state.zoom=1;$('viewMode').value='fit';$('scaleWrap').hidden=true;$('customWrap').hidden=true;updateView()};
 $('fullscreenBtn').onclick=()=>{(!document.fullscreenElement?$('reader').requestFullscreen():document.exitFullscreen()).catch(()=>{})};
+$('settingsBtn').onclick=()=>{const pop=$('settingsPopover'),open=pop.hidden;pop.hidden=!open;$('settingsBtn').setAttribute('aria-expanded',String(open))};
+document.addEventListener('click',e=>{if(!e.target.closest('.settings-popover,.settings-icon')&&!$('settingsPopover').hidden){$('settingsPopover').hidden=true;$('settingsBtn').setAttribute('aria-expanded','false')}});
 window.addEventListener('orientationchange',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
 function toggleThumbnails(){ const panel=$('thumbPanel'), hidden=panel.classList.contains('is-hidden'); panel.classList.toggle('is-hidden',!hidden); $('thumbsBtn').setAttribute('aria-expanded',String(hidden)); $('thumbsBtn').textContent=hidden?'Hide thumbnails':'Show thumbnails'; }
 $('thumbToggle').onclick=toggleThumbnails; $('thumbsBtn').onclick=toggleThumbnails;
@@ -205,5 +208,5 @@ function applyTheme(value){
 }
 $('themeMenuBtn').onclick=()=>{const select=$('themeSelect'),open=select.hidden;select.hidden=!open;$('themeMenuBtn').setAttribute('aria-expanded',String(open));if(open)select.focus()}; $('themeSelect').onchange=e=>applyTheme(e.target.value);
 $('motionToggle').onchange=e=>{state.reduceMotion=e.target.checked;document.body.classList.toggle('reduce-motion',state.reduceMotion);localStorage.setItem('bookreative-motion',state.reduceMotion);updateView()};
-const savedTheme=localStorage.getItem('bookreative-theme');const initialTheme=['dark','light','deepsea','lavender'].includes(savedTheme)?savedTheme:'dark';applyTheme(initialTheme);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
+const savedTheme=localStorage.getItem('bookreative-theme');const initialTheme=['dark','light','deepsea','lavender'].includes(savedTheme)?savedTheme:'light';applyTheme(initialTheme);const savedMotion=localStorage.getItem('bookreative-motion');const initialMotion=savedMotion===null?true:savedMotion==='true';$('motionToggle').checked=initialMotion;state.reduceMotion=initialMotion;
 window.addEventListener('resize',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
