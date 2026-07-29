@@ -1,6 +1,6 @@
 # Bookreative Books
 
-A framework-free, static PDF flipbook prototype for Bookreative Books. It uses vanilla HTML, CSS, and JavaScript and keeps PDF processing in the browser. PDF.js is bundled locally in `vendor/` — there is no CDN or build step.
+A framework-free, static PDF flipbook prototype for Bookreative Books. It uses vanilla HTML, CSS, and JavaScript and keeps PDF processing in the browser. It attempts the tablet-compatible PDF.js CDN first and keeps local PDF.js files in `vendor/` plus root-level fallbacks for deployment reliability. There is no build step.
 
 ## Files
 
@@ -8,9 +8,9 @@ A framework-free, static PDF flipbook prototype for Bookreative Books. It uses v
 - `BOOKREATIVE.png` — responsive Bookreative branding logo used in the header
 - `styles.css` — responsive styling, themes, focus states, and motion styles
 - `app.js` — PDF import/rendering, flipbook navigation, thumbnails, settings, and persistence
-- `vendor/pdf.min.js` — bundled PDF.js 3.11.174 tablet-compatible browser bundle
-- `vendor/pdf.worker.min.js` — bundled PDF.js 3.11.174 worker
-- `pdf.min.js` and `pdf.worker.min.js` — root-level copies used by the app for compatibility with static upload hosts that omit nested folders; the app loads these as a classic script for older tablet browsers
+- `vendor/pdf.min.js` — bundled PDF.js 3.11.174 tablet-compatible fallback bundle
+- `vendor/pdf.worker.min.js` — bundled PDF.js 3.11.174 fallback worker
+- `pdf.min.js` and `pdf.worker.min.js` — root-level fallback copies used by the app for static deployment compatibility. The app attempts the tablet-compatible PDF.js 3.11.174 CDN first, then automatically falls back to these local files if the CDN is blocked or unavailable.
 
 ## Run locally
 

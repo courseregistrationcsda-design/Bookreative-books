@@ -6,12 +6,15 @@ const state = { pdf:null, pages:[], current:1, binding:'ltr', pageView:'book', z
 // Keep the control dock outside scrolling content so its edge-to-edge fixed position is reliable.
 const controlDock=document.querySelector('.controls-dock'); if(controlDock)document.body.append(controlDock);
 function pageExtent(page){ const v=page.getViewport({scale:1}); return {width:v.width,height:v.height}; }
-function fileIsPdf(file){ return file && (file.type==='application/pdf' || file.name.toLowerCase().endsWith('.pdf')); }
+const PDFJS_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 async function loadPdfJs(){
   if(pdfjsLib)return pdfjsLib;
-  if(globalThis.pdfjsLib){pdfjsLib=globalThis.pdfjsLib;}
-  else await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./pdf.min.js';script.async=true;script.onload=()=>{pdfjsLib=globalThis.pdfjsLib;pdfjsLib?resolve():reject(new Error('PDF.js loaded without a global pdfjsLib'))};script.onerror=()=>reject(new Error('Could not load local PDF.js'));document.head.append(script)});
-  pdfjsLib.GlobalWorkerOptions.workerSrc='./pdf.worker.min.js'; return pdfjsLib;
+  if(globalThis.pdfjsLib){pdfjsLib=globalThis.pdfjsLib;pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_CDN+'pdf.worker.min.js';return pdfjsLib;}
+  const loadScript=src=>new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.async=true;script.crossOrigin='anonymous';script.onload=()=>globalThis.pdfjsLib?resolve(globalThis.pdfjsLib):reject(new Error('PDF.js loaded without pdfjsLib'));script.onerror=()=>reject(new Error(`Failed to load ${src}`));document.head.append(script)});
+  // CDN first for the tablet-compatible PDF.js 3.11 bundle; local files are the deployment-safe fallback.
+  try{pdfjsLib=await loadScript(PDFJS_CDN+'pdf.min.js');pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_CDN+'pdf.worker.min.js';}
+  catch(cdnError){console.warn('PDF.js CDN unavailable; using bundled fallback.',cdnError);try{pdfjsLib=await loadScript('./pdf.min.js');pdfjsLib.GlobalWorkerOptions.workerSrc='./pdf.worker.min.js';}catch(localError){throw new Error('Could not load PDF.js from the CDN or bundled fallback.');}}
+  return pdfjsLib;
 }
 
 async function openPdf(file){
