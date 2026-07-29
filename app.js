@@ -28,13 +28,12 @@ async function openPdf(file){
     $('workspace').hidden=false;
     buildThumbnails(); updateView();
 
-    // Render only the cover first so lower-memory tablets become usable quickly.
-    await renderPage(1,token);
+    // Render only the visible cover/spread first so lower-memory tablets become usable quickly.
+    await ensureVisiblePages(token);
     if(token!==state.renderToken)return;
     updateView();
-    // The second page and the rest render progressively; a single bad page must not abort the book.
-    if(state.pdf.numPages>1)renderPage(2,token).catch(err=>console.warn('Page 2 render failed',err));
-    renderRemainingPages(token); // Continue in the background without blocking navigation.
+    // Desktop continues in the background; tablets stay on-demand to avoid memory crashes.
+    renderRemainingPages(token);
   } catch(err){ console.error(err); alert(`Could not open this PDF: ${err.message||err}`); }
   finally { if(token===state.renderToken && !state.pages.some(p=>p.src)) $('readerStatus').textContent='No pages rendered.'; }
 }
@@ -45,6 +44,10 @@ function safeRenderScale(width,height){
   const lowMemory=navigator.deviceMemory&&navigator.deviceMemory<=2;
   const maxArea=(touchDevice||lowMemory)?3000000:18000000, maxDimension=(touchDevice||lowMemory)?2048:4096;
   return Math.min(requested,Math.sqrt(maxArea/(width*height)),maxDimension/Math.max(width,height));
+}
+async function ensureVisiblePages(token=state.renderToken){
+  if(!state.pages.length || token!==state.renderToken)return;
+  try{await renderPage(state.current,token); if(state.pageView!=='single' && state.current<state.pages.length)await renderPage(state.current+1,token);}catch(err){console.warn('Visible page render failed',err)}
 }
 async function renderPage(index,token=state.renderToken){
   const p=state.pages[index-1];
@@ -101,7 +104,7 @@ function dimensionsFor(p){
 }
 function setPageImage(el,index){
   const p=state.pages[index-1]; const d=dimensionsFor(p); el.style.width=`${d.w*state.zoom}px`; el.style.height=`${d.h*state.zoom}px`; el.replaceChildren();
-  if(p.src){const img=new Image();img.src=p.src;img.alt=`Page ${index}`;el.append(img);}else{const loadingPage=document.createElement('span');loadingPage.className='page-placeholder';loadingPage.textContent=p.error?`Page ${index} could not render`:`Rendering page ${index}…`;el.append(loadingPage);if(!p.error && index===state.current)renderPage(index);}
+  if(p.src){const img=new Image();img.src=p.src;img.alt=`Page ${index}`;el.append(img);}else{const loadingPage=document.createElement('span');loadingPage.className='page-placeholder';loadingPage.textContent=p.error?`Page ${index} could not render`:`Preparing page ${index}…`;el.append(loadingPage);}
 }
 function updateView(transition=''){
   if(!state.pages.length)return;
@@ -122,7 +125,7 @@ function updateView(transition=''){
   $('readerStatus').textContent=state.pageView==='single'?`Page ${state.current} of ${state.pages.length}`:(state.current===1&&state.pageView==='book'?'Cover · Page 1':`Pages ${state.current}–${Math.min(state.current+1,state.pages.length)} of ${state.pages.length}`);
   if(previousPages.length)setTimeout(()=>stage.querySelector('.book-snapshot')?.remove(),520);
 }
-function jump(n,transition=''){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(state.pageView!=='single' && n>1 && n%2===1)n--; state.current=n; ensureThumbnailWindow(n); updateView(transition); }
+function jump(n,transition=''){ if(!state.pages.length)return; n=Math.max(1,Math.min(state.pages.length,Math.round(n))); if(state.pageView!=='single' && n>1 && n%2===1)n--; state.current=n; ensureThumbnailWindow(n); updateView(transition); ensureVisiblePages(state.renderToken); }
 function nextSpread(){ const step=state.pageView==='single'?1:2; jump(state.current===1?2:state.current+step,'next'); }
 function prevSpread(){ const step=state.pageView==='single'?1:2; jump(state.current<=step?1:state.current-step,'prev'); }
 function next(){ state.binding==='rtl'?prevSpread():nextSpread(); }
@@ -204,12 +207,14 @@ $('rotateBtn').onclick=async()=>{
   }
 };
 window.addEventListener('orientationchange',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
-function toggleThumbnails(){ const panel=$('thumbPanel'), hidden=!panel.hidden; panel.hidden=hidden; $('thumbsBtn').setAttribute('aria-expanded',String(!hidden)); $('thumbsBtn').textContent=hidden?'Show thumbnails':'Hide thumbnails'; }
+function toggleThumbnails(){ const panel=$('thumbPanel'), hidden=panel.classList.contains('is-hidden'); panel.classList.toggle('is-hidden',!hidden); $('thumbsBtn').setAttribute('aria-expanded',String(hidden)); $('thumbsBtn').textContent=hidden?'Hide thumbnails':'Show thumbnails'; }
 $('thumbToggle').onclick=toggleThumbnails; $('thumbsBtn').onclick=toggleThumbnails;
 $('thumbPrev').onclick=()=>{state.thumbStart=Math.max(1,state.thumbStart-10);buildThumbnails()}; $('thumbNext').onclick=()=>{if(state.thumbStart+10<=state.pages.length){state.thumbStart+=10;buildThumbnails()}};
 document.addEventListener('keydown',e=>{if(e.target.matches('input,select,button'))return;if(['ArrowRight','PageDown'].includes(e.key)){e.preventDefault();next()}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev()}if(e.key==='Home')jump(1)});
-function applyTheme(value){document.body.dataset.theme=value==='system'?'':value; localStorage.setItem('bookreative-theme',value); $('themeSelect').value=value;}
+function applyTheme(value){
+  const darkPalette=['dark','deepsea','lavender'].includes(value); document.body.dataset.theme=darkPalette?'dark':'light'; document.body.dataset.palette=value; localStorage.setItem('bookreative-theme',value); $('themeSelect').value=value;
+}
 $('themeMenuBtn').onclick=()=>{const select=$('themeSelect'),open=select.hidden;select.hidden=!open;$('themeMenuBtn').setAttribute('aria-expanded',String(open));if(open)select.focus()}; $('themeSelect').onchange=e=>applyTheme(e.target.value);
 $('motionToggle').onchange=e=>{state.reduceMotion=e.target.checked;document.body.classList.toggle('reduce-motion',state.reduceMotion);localStorage.setItem('bookreative-motion',state.reduceMotion);updateView()};
-const savedTheme=localStorage.getItem('bookreative-theme')||'dark';applyTheme(savedTheme);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
+const savedTheme=localStorage.getItem('bookreative-theme');const initialTheme=['dark','light','deepsea','lavender'].includes(savedTheme)?savedTheme:'dark';applyTheme(initialTheme);$('motionToggle').checked=localStorage.getItem('bookreative-motion')==='true';state.reduceMotion=$('motionToggle').checked;
 window.addEventListener('resize',()=>{if(state.pages.length && $('viewMode').value==='fit')updateView()});
