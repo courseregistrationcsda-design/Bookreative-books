@@ -1,6 +1,7 @@
 let pdfjsLib;
 const $ = id => document.getElementById(id);
 const setStatus = message => { const el=$('readerStatus'); if(el)el.textContent=message; };
+let toastTimer; function notify(message){const toast=$('toast');if(!toast)return;toast.textContent=message;toast.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{toast.hidden=true},5000);}
 const state = { pdf:null, pages:[], current:1, binding:'ltr', pageView:'book', zoom:1, reduceMotion:false, renderToken:0, rendering:new Set(), thumbStart:1 };
 // Keep the control dock outside scrolling content so its edge-to-edge fixed position is reliable.
 const controlDock=document.querySelector('.controls-dock'); if(controlDock)document.body.append(controlDock);
@@ -14,7 +15,7 @@ async function loadPdfJs(){
 }
 
 async function openPdf(file){
-  if(!fileIsPdf(file)){ alert('Please choose a PDF file.'); return; }
+  if(!fileIsPdf(file)){ notify('Please choose a PDF file.'); return; }
   document.body.classList.remove('no-book'); setStatus('Opening PDF…');
   state.renderToken++; const token=state.renderToken;
   try {
@@ -38,7 +39,7 @@ async function openPdf(file){
     updateView();
     // Desktop continues in the background; tablets stay on-demand to avoid memory crashes.
     renderRemainingPages(token);
-  } catch(err){ console.error(err); alert(`Could not open this PDF: ${err.message||err}`); }
+  } catch(err){ console.error(err); notify(`Could not open this PDF: ${err.message||err}`); }
   finally { if(token===state.renderToken && !state.pages.some(p=>p.src)) setStatus('No pages rendered.'); }
 }
 
@@ -142,6 +143,7 @@ $('nextBtn').onclick=next; $('prevBtn').onclick=prev; $('pageSlider').oninput=e=
 
 // Pointer/touch page turning: drag from a book edge, or swipe across the reader on touch devices.
 const reader=$('reader');
+reader.addEventListener('wheel',e=>{if(!state.pages.length)return;e.preventDefault();const direction=e.deltaY<0?1:-1;state.zoom=Math.max(.4,Math.min(3,state.zoom+direction*.1));updateView()},{passive:false});
 const drag={active:false,startX:0,lastX:0,pointerId:null,edge:false,startTime:0};
 const pointers=new Map(); let pinchStartDistance=0; let pinchStartZoom=1;
 reader.addEventListener('pointerdown',e=>{
