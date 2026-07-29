@@ -7,6 +7,7 @@ const state = { pdf:null, pages:[], current:1, binding:'ltr', pageView:'book', z
 const controlDock=document.querySelector('.controls-dock'); if(controlDock)document.body.append(controlDock);
 function pageExtent(page){ const v=page.getViewport({scale:1}); return {width:v.width,height:v.height}; }
 const PDFJS_CDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+function fileIsPdf(file){return file && (file.type==='application/pdf' || file.name.toLowerCase().endsWith('.pdf'));}
 async function loadPdfJs(){
   if(pdfjsLib)return pdfjsLib;
   if(globalThis.pdfjsLib){pdfjsLib=globalThis.pdfjsLib;pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_CDN+'pdf.worker.min.js';return pdfjsLib;}
